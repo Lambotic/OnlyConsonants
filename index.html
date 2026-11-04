@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CONSONANTS ONLY</title>
+<style>
+:root{--color-correct:#6aaa64;--color-present:#c9b458;--color-absent:#787c7e;--color-tile-border:#d3d6da;}
+body{font-family:sans-serif;background-color:#fff;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:20px;margin:0;}
+header{text-align:center;margin-bottom:20px;border-bottom:1px solid var(--color-tile-border);width:100%;max-width:550px;padding-bottom:10px;}
+.subtitle{margin:5px 0;color:#666;font-size:14px;}
+#streak-bar{font-weight:bold;color:#333;font-size:14px;margin-top:5px;}
+#game-container{display:flex;flex-direction:column;align-items:center;width:100%;max-width:550px;}
+#grid{display:flex;flex-direction:column;gap:5px;margin-bottom:20px;}
+.row{display:flex;gap:5px;}
+.tile{width:52px;height:52px;border:2px solid var(--color-tile-border);display:inline-flex;justify-content:center;align-items:center;font-size:24px;font-weight:bold;text-transform:uppercase;transition:background-color .2s;}
+#clue-box{width:100%;background-color:#f4f4f4;border-radius:8px;padding:12px;margin-bottom:20px;text-align:center;box-sizing:border-box;}
+.clue-btn{background-color:#1a1a1a;color:#fff;border:none;padding:10px 20px;font-weight:bold;border-radius:4px;cursor:pointer;}
+.clue-btn:disabled{background-color:#ccc;cursor:not-allowed;}
+#keyboard{display:flex;flex-direction:column;width:100%;row-gap:8px;}
+.keyboard-row{display:flex;justify-content:center;width:100%;column-gap:6px;}
+.key{background-color:#e5e5e5;border:0;height:58px;flex:1;display:flex;justify-content:center;align-items:center;font-weight:bold;border-radius:4px;cursor:pointer;text-transform:uppercase;}
+.key.wide{flex:1.5;font-size:12px;}
+#message{margin-top:15px;font-weight:bold;font-size:18px;text-align:center;height:24px;}
+.length-selector button{margin:5px;padding:8px 15px;font-size:14px;cursor:pointer;border:2px solid #d3d6da;background:#fff;border-radius:4px;font-weight:bold;}
+.length-selector button.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a;}
+</style>
+</head>
+<body>
+<div id="login-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;">
+  <h1 style="font-size:34px;margin-bottom:10px;letter-spacing:1px;">CONSONANTS ONLY</h1>
+  <p style="color:#666;margin-bottom:20px;">Enter your Profile ID to load your game progress</p>
+  <div style="display:flex;gap:8px;">
+    <input type="text" id="user-id-input" placeholder="User ID (e.g., Player1)" onkeydown="if(event.key==='Enter'){handleLogin();}" style="padding:12px;font-size:16px;border:2px solid #d3d6da;border-radius:4px;width:220px;outline:none;">
+    <button class="clue-btn" onclick="handleLogin()" style="padding:0 20px;">Login</button>
+  </div>
+  <div id="login-message" style="margin-top:15px;color:#d9534f;font-weight:bold;height:20px;"></div>
+</div>
+
+<header>
+  <div style="font-size:12px;color:#787c7e;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;display:flex;justify-content:center;gap:10px;align-items:center;">
+    <span id="user-display">Player: None</span>
+    <span style="color:#d3d6da;">|</span>
+    <a href="#" onclick="handleLogout(event)" style="color:#d9534f;text-decoration:none;font-weight:bold;">Log Out</a>
+  </div>
+  <h1>CONSONANTS ONLY</h1>
+  <p class="subtitle">Find strings containing no standard vowels. 5 attempts.</p>
+  <div class="length-selector" id="length-selector-container" style="margin-top:10px;">
+    <button id="len-btn-3" onclick="changeWordLength(3)">3 Letters</button>
+    <button id="len-btn-4" onclick="changeWordLength(4)">4 Letters</button>
+    <button id="len-btn-5" class="active" onclick="changeWordLength(5)">5 Letters</button>
+    <button id="len-btn-6" onclick="changeWordLength(6)">6 Letters</button>
+  </div>
+  <div id="streak-bar" style="margin-top:10px;">Completed: 0 words found</div>
+</header>
+<div id="game-container">
+  <div id="grid"></div>
+  <div id="clue-box">
+    <button id="clue-btn" class="clue-btn" onclick="revealClue()" disabled>Unlock Clue (Attempt 5)</button>
+    <span id="clue-text" style="display:none;"></span>
+  </div>
+  <div id="keyboard"></div>
+  <div id="message"></div>
+  <div id="prompt-message" style="margin-top:10px;font-weight:500;min-height:20px;"></div>
+  <div id="reset-box" style="margin-top:10px;display:none;">
+    <button id="action-btn" class="clue-btn" onclick="handleGameNext()">Try another</button>
+  </div>
+</div>
+<script>
+const dictionary = {
+  3: [
+    {w:"DRY",d:"Consonant-Only",c:"Free from moisture or liquid."},
+    {w:"PLY",d:"Consonant-Only",c:"To practice a trade or craft."},
+    {w:"GYM",d:"Consonant-Only",c:"Indoor sports."},
+    {w:"PRY",d:"Consonant-Only",c:"To inquire."},
+    {w:"SHY",d:"Consonant-Only",c:"Timid or reserved."},
+    {w:"STY",d:"Consonant-Only",c:"Pigs live here."},
+    {w:"SKY",d:"Consonant-Only",c:"Viewed from the Earth."},
+    {w:"THY",d:"Consonant-Only",c:"Meaning it's yours."},
+    {w:"FRY",d:"Consonant-Only",c:"To cook food in hot fat or oil."},
+    {w:"CRY",d:"Consonant-Only",c:"Shed tears as an expression of distress or pain."},
+    {w:"SHH",d:"Consonant-Only",c:"An utterance used to command silence."},
+    {w:"TRY",d:"Consonant-Only",c:"Make an attempt or effort to do something."},
+    {w:"FLY",d:"Consonant-Only",c:"Move through the air using wings, or a small insect."},
+    {w:"SLY",d:"Consonant-Only",c:"Having or showing a cunning and deceitful nature."},
+    {w:"SPY",d:"Consonant-Only",c:"A person employed to secretly collect secret information."},
+    {w:"WHY",d:"Consonant-Only",c:"Ask for a reason, purpose, or explanation."},
+    {w:"WRY",d:"Consonant-Only",c:"Clever, dry, and ironically or mockingly humorous."},
+    {w:"GRR",d:"Consonant-Only",c:"A growl of anger or disappointment."},
+    {w:"HMM",d:"Consonant-Only",c:"Expresses thought, hesitation, doubt, or curiosity."},
+    {w:"BRR",d:"Consonant-Only",c:"Feeling cold."}
+  ],
+  4: [
+    {w:"BYRL",d:"Consonant-Only",c:"To pour out wine, or an old logging log-rolling skill variant."},
+    {w:"BRRR",d:"Consonant-Only",c:"Used to express sensations of cold."},
+    {w:"GYMP",d:"Consonant-Only",c:"A narrow fabric flat braid trim used in upholstery work."},
+    {w:"HYMN",d:"Consonant-Only",c:"A religious song or poem of praise to God."},
+    {w:"LYNX",d:"Consonant-Only",c:"A wild cat with yellowish-brown fur, tufted ears, and short tail."},
+    {w:"MYTH",d:"Consonant-Only",c:"A traditional story concerning the early history of people."},
+    {w:"SPRY",d:"Consonant-Only",c:"Active, nimble, energetic, and full of life."},
+    {w:"SYNC",d:"Consonant-Only",c:"Short for synchronization; operating in perfect unison."},
+    {w:"PSST",d:"Consonant-Only",c:"To try unobtrusively to attract someone's attention."},
+    {w:"CYST",d:"Consonant-Only",c:"Can get under your skin."}
+  ],
+  5: [
+    {w:"CRYPT",d:"Consonant-Only",c:"An underground room or vault beneath a church floor."},
+    {w:"LYMPH",d:"Consonant-Only",c:"A clear-to-white bodily fluid."},
+    {w:"PYGMY",d:"Consonant-Only",c:"An ethnic group of people less than 5 ft tall."},
+    {w:"DRYLY",d:"Consonant-Only",c:"Speaking, writing, or acting in a calm, matter-of-fact way."},
+    {w:"FLYBY",d:"Consonant-Only",c:"A flight past a point, especially by a spacecraft for exploration."},
+    {w:"GLYPH",d:"Consonant-Only",c:"A hieroglyphic character or carved symbolic figure symbol."},
+    {w:"GYPSY",d:"Consonant-Only",c:"A traditional nomadic traveler group shorthand variant."},
+    {w:"LYNCH",d:"Consonant-Only",c:"An archaic historical legal reference descriptor term."},
+    {w:"MYRRH",d:"Consonant-Only",c:"A fragrant gum resin obtained from certain trees used in perfumes."},
+    {w:"NYMPH",d:"Consonant-Only",c:"A mythological spirit of nature imagined as a beautiful maiden."},
+    {w:"SLYLY",d:"Consonant-Only",c:"Done in a cunning, secretive, or stealthy manner."},
+    {w:"SHYLY",d:"Consonant-Only",c:"Acting in a timid, bashful, or reserved manner."},
+    {w:"TRYST",d:"Consonant-Only",c:"A private romantic rendezvous between lovers."}
+  ],
+  6: [
+    {w:"FLYSCH",d:"Consonant-Only",c:"A sequence of alternating layers of hard and soft sedimentary rock."},
+    {w:"MYTHS",d:"Consonant-Only",c:"Plural form of legendary ancient history stories or fables."},
+    {w:"SPHYNX",d:"Consonant-Only",c:"A hairless cat."},
+    {w:"RHYTHM",d:"Consonant-Only",c:"A strong, regular, repeated pattern of movement or sound."},
+    {w:"SPRYLY",d:"Consonant-Only",c:"Moving in a quick, energetic, nimble, or brisk manner."}
+  ]
+};
+
+let currentUserId = "";
+let userProgress = {len3:[], len4:[], len5:[], len6:[]};
+let selectedLength = 5;
+let currentPuzzleIdx = -1;
+let puzzle, targetWord, currentAttempt, currentGuess, gameOver = true;
+
+const grid = document.getElementById("grid");
+const keyboard = document.getElementById("keyboard");
+const clueBtn = document.getElementById("clue-btn");
+const clueText = document.getElementById("clue-text");
+const message = document.getElementById("message");
+const promptMessage = document.getElementById("prompt-message");
+const resetBox = document.getElementById("reset-box");
+const actionBtn = document.getElementById("action-btn");
+const streakBar = document.getElementById("streak-bar");
+
+const rows = [
+  ["q","w","r","t","y","p"],
+  ["s","d","f","g","h","j","k","l"],
+  ["enter","z","x","c","v","b","n","m","backspace"]
+];
+
+rows.forEach(function(r) {
+  let rowDiv = document.createElement("div");
+  rowDiv.className = "keyboard-row";
+  r.forEach(function(key) {
+    let btn = document.createElement("button");
+    btn.className = "key";
+    btn.textContent = key === "backspace" ? "⌫" : key;
+    btn.id = "key-" + key;
+    if (key === "enter" || key === "backspace") { btn.classList.add("wide"); }
+    // blur stops a physical Enter key from also re-clicking the last tapped button
+    btn.onclick = function() { handleInput(key); btn.blur(); };
+    rowDiv.appendChild(btn);
+  });
+  keyboard.appendChild(rowDiv);
+});
+
+document.addEventListener("keydown", function(e) {
+  if (currentUserId === "" || gameOver) { return; }
+  let key = e.key.toLowerCase();
+  let isControl = (key === "enter" || key === "backspace");
+  let isLetter = (key.length === 1 && "bcdfghjklmnpqrstvwxyz".indexOf(key) !== -1);
+  if (isControl || isLetter) { e.preventDefault(); handleInput(key); }
+});
+
+function handleInput(key) {
+  if (gameOver) { return; }
+  message.textContent = "";
+  if (key === "backspace") {
+    if (currentGuess.length > 0) { currentGuess = currentGuess.slice(0, -1); updateRowVisuals(); }
+  } else if (key === "enter") {
+    if (currentGuess.length === selectedLength) { submitGuess(); }
+    else { message.style.color = "#1a1a1a"; message.textContent = "Needs " + selectedLength + " letters"; }
+  } else if (currentGuess.length < selectedLength) {
+    currentGuess += key.toUpperCase();
+    updateRowVisuals();
+  }
+}
+
+function updateRowVisuals() {
+  for (let j = 0; j < selectedLength; j++) {
+    let tile = document.getElementById("tile-" + currentAttempt + "-" + j);
+    if (tile) { tile.textContent = currentGuess[j] ? currentGuess[j] : ""; }
+  }
+}
+
+function handleLogin() {
+  const rawInput = document.getElementById("user-id-input").value.trim();
+  if (rawInput === "") {
+    document.getElementById("login-message").textContent = "Please enter a valid User ID";
+    return;
+  }
+  currentUserId = rawInput;
+  document.getElementById("user-display").textContent = "Player: " + currentUserId;
+  document.getElementById("login-overlay").style.display = "none";
+
+  userProgress = {len3:[], len4:[], len5:[], len6:[]};
+  try {
+    const savedData = localStorage.getItem("consonants_progress_" + currentUserId);
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      ["len3","len4","len5","len6"].forEach(function(k) {
+        if (Array.isArray(parsed[k])) { userProgress[k] = parsed[k]; }
+      });
+    }
+  } catch (err) { /* storage blocked or corrupt: start fresh */ }
+
+  currentPuzzleIdx = selectNextPuzzleIndex();
+  initGame();
+}
+
+function saveUserProgress() {
+  try { localStorage.setItem("consonants_progress_" + currentUserId, JSON.stringify(userProgress)); }
+  catch (err) { /* storage blocked: progress lasts for this session only */ }
+}
+
+function changeWordLength(len) {
+  if (currentUserId === "") { return; }
+  selectedLength = len;
+  let buttons = document.getElementById("length-selector-container").getElementsByTagName("button");
+  for (let i = 0; i < buttons.length; i++) { buttons[i].classList.remove("active"); }
+  document.getElementById("len-btn-" + len).classList.add("active");
+  currentPuzzleIdx = selectNextPuzzleIndex();
+  initGame();
+}
+
+function buildGameBoardGrid() {
+  grid.innerHTML = "";
+  for (let i = 0; i < 5; i++) {
+    let row = document.createElement("div");
+    row.className = "row";
+    for (let j = 0; j < selectedLength; j++) {
+      let tile = document.createElement("div");
+      tile.className = "tile";
+      tile.id = "tile-" + i + "-" + j;
+      row.appendChild(tile);
+    }
+    grid.appendChild(row);
+  }
+}
+
+function selectNextPuzzleIndex() {
+  let activePool = dictionary[selectedLength];
+  let solvedList = userProgress["len" + selectedLength];
+  if (solvedList.length >= activePool.length) { return -2; }
+  let available = [];
+  for (let i = 0; i < activePool.length; i++) {
+    if (solvedList.indexOf(i) === -1) { available.push(i); }
+  }
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+function initGame() {
+  let activePool = dictionary[selectedLength];
+  let pKey = "len" + selectedLength;
+  buildGameBoardGrid();
+  clueText.style.display = "none"; clueText.textContent = "";
+  message.textContent = ""; promptMessage.textContent = ""; resetBox.style.display = "none";
+  let foundCount = userProgress[pKey].length;
+  streakBar.textContent = "Completed: " + foundCount + " of " + activePool.length + " (" + selectedLength + "-Letter pack)";
+
+  if (currentPuzzleIdx === -2) {
+    puzzle = {w:"", c:""}; targetWord = ""; gameOver = true;
+    clueBtn.style.display = "inline-block"; clueBtn.disabled = true;
+    message.style.color = "#6aaa64"; message.textContent = "LENGTH PACK COMPLETED!";
+    promptMessage.textContent = "Try a different word length size!";
+    resetBox.style.display = "block"; actionBtn.textContent = "RESET COMPLETED PACK?";
+    return;
+  }
+  puzzle = activePool[currentPuzzleIdx]; targetWord = puzzle.w;
+  currentAttempt = 0; currentGuess = ""; gameOver = false;
+  clueBtn.style.display = "inline-block"; clueBtn.disabled = true;
+  let keys = document.getElementsByClassName("key");
+  for (let i = 0; i < keys.length; i++) {
+    keys[i].style.backgroundColor = "#e5e5e5"; keys[i].style.color = "#1a1a1a";
+    keys[i].setAttribute("data-status", "none");
+  }
+}
+
+function submitGuess() {
+  let counts = {};
+  for (let i = 0; i < targetWord.length; i++) { counts[targetWord[i]] = (counts[targetWord[i]] || 0) + 1; }
+  let results = Array(selectedLength).fill("absent");
+  for (let j = 0; j < selectedLength; j++) {
+    if (currentGuess[j] === targetWord[j]) { results[j] = "correct"; counts[currentGuess[j]]--; }
+  }
+  for (let j = 0; j < selectedLength; j++) {
+    if (results[j] !== "correct" && counts[currentGuess[j]] > 0) { results[j] = "present"; counts[currentGuess[j]]--; }
+  }
+  for (let j = 0; j < selectedLength; j++) {
+    let tile = document.getElementById("tile-" + currentAttempt + "-" + j);
+    if (tile) {
+      tile.style.backgroundColor = results[j] === "correct" ? "#6aaa64" : (results[j] === "present" ? "#c9b458" : "#787c7e");
+      tile.style.color = "white"; tile.style.borderColor = "transparent";
+    }
+    let keyBtn = document.getElementById("key-" + currentGuess[j].toLowerCase());
+    if (keyBtn) {
+      let status = keyBtn.getAttribute("data-status");
+      if (results[j] === "correct") { keyBtn.style.backgroundColor = "#6aaa64"; keyBtn.style.color = "white"; keyBtn.setAttribute("data-status", "correct"); }
+      else if (results[j] === "present" && status !== "correct") { keyBtn.style.backgroundColor = "#c9b458"; keyBtn.style.color = "white"; keyBtn.setAttribute("data-status", "present"); }
+      else if (results[j] === "absent" && status !== "correct" && status !== "present") { keyBtn.style.backgroundColor = "#787c7e"; keyBtn.style.color = "white"; keyBtn.setAttribute("data-status", "absent"); }
+    }
+  }
+  let activePool = dictionary[selectedLength]; let pKey = "len" + selectedLength;
+  if (currentGuess === targetWord) {
+    gameOver = true;
+    if (userProgress[pKey].indexOf(currentPuzzleIdx) === -1) { userProgress[pKey].push(currentPuzzleIdx); }
+    saveUserProgress();
+    let foundCount = userProgress[pKey].length;
+    message.style.color = "#6aaa64";
+    if (foundCount >= activePool.length) {
+      message.textContent = "PACK COMPLETED!"; promptMessage.textContent = "Try a different size!"; actionBtn.textContent = "START PACK OVER?";
+    } else {
+      message.textContent = "You found " + foundCount + " of " + activePool.length + " words."; promptMessage.textContent = "Try another?"; actionBtn.textContent = "Try another";
+    }
+    resetBox.style.display = "block"; return;
+  }
+  currentAttempt++; currentGuess = "";
+  if (currentAttempt === 4) { clueBtn.disabled = false; }
+  if (currentAttempt === 5) {
+    message.style.color = "#d9534f"; message.textContent = "Game Over! It was " + targetWord;
+    promptMessage.textContent = "Try another?"; actionBtn.textContent = "Try another";
+    gameOver = true; resetBox.style.display = "block";
+  }
+}
+
+function revealClue() { clueBtn.style.display = "none"; clueText.style.display = "inline"; clueText.innerHTML = "<strong>Hint Def:</strong> " + puzzle.c; }
+
+function handleGameNext() {
+  let activePool = dictionary[selectedLength]; let pKey = "len" + selectedLength;
+  if (userProgress[pKey].length >= activePool.length) { userProgress[pKey] = []; saveUserProgress(); }
+  currentPuzzleIdx = selectNextPuzzleIndex();
+  initGame();
+}
+
+function handleLogout(e) {
+  if (e) { e.preventDefault(); }
+  currentUserId = ""; currentPuzzleIdx = -1; gameOver = true;
+  document.getElementById("user-id-input").value = "";
+  document.getElementById("login-message").textContent = "";
+  document.getElementById("user-display").textContent = "Player: None";
+  document.getElementById("login-overlay").style.display = "flex";
+}
+
+buildGameBoardGrid();
+</script>
+</body>
+</html>
